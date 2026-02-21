@@ -2,13 +2,13 @@ from flask import Flask, render_template, request, jsonify, url_for, redirect, s
 import os
 from functools import wraps
 
-app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+application = Flask(__name__)
+application.config['UPLOAD_FOLDER'] = 'uploads'
+application.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 # Create uploads folder if it doesn't exist
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-app.secret_key = 'anything'
+os.makedirs(application.config['UPLOAD_FOLDER'], exist_ok=True)
+application.secret_key = 'anything'
 
 # Database for development, use an actual database in production
 USERS = {
@@ -26,13 +26,13 @@ def login_required(f):
     return decorated_function
 
 
-@app.route('/')
+@application.route('/')
 @login_required  # ← ADD THIS
 def index():
     return render_template('index.html', username=session['username'])
 
 
-@app.route('/login', methods=['GET', 'POST'])
+@application.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form.get('username')
@@ -50,13 +50,13 @@ def login():
     return render_template('login.html', error=None)
 
 
-@app.route('/logout', methods=['POST'])
+@application.route('/logout', methods=['POST'])
 def logout():
     session.pop('username', None)
     return redirect(url_for('login'))
 
 
-@app.route('/upload', methods=['POST'])
+@application.route('/upload', methods=['POST'])
 @login_required  # ← ADD THIS
 def upload_files():
     if 'files' not in request.files:
@@ -69,7 +69,7 @@ def upload_files():
         if file.filename == '':
             continue
         
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+        filepath = os.path.join(application.config['UPLOAD_FOLDER'], file.filename)
         file.save(filepath)
         uploaded_files.append(file.filename)
     
@@ -79,12 +79,12 @@ def upload_files():
     })
 
 
-@app.route('/files', methods=['GET'])
+@application.route('/files', methods=['GET'])
 @login_required  # ← ADD THIS
 def list_files():
     files = []
-    for filename in os.listdir(app.config['UPLOAD_FOLDER']):
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    for filename in os.listdir(application.config['UPLOAD_FOLDER']):
+        filepath = os.path.join(application.config['UPLOAD_FOLDER'], filename)
         if os.path.isfile(filepath):
             files.append({
                 'name': filename,
@@ -93,11 +93,11 @@ def list_files():
     return jsonify(files)
 
 
-@app.route('/delete/<filename>', methods=['DELETE'])
+@application.route('/delete/<filename>', methods=['DELETE'])
 @login_required  # ← ADD THIS
 def delete_file(filename):
     try:
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        filepath = os.path.join(application.config['UPLOAD_FOLDER'], filename)
         if os.path.exists(filepath):
             os.remove(filepath)
             return jsonify({'message': 'File deleted successfully'})
