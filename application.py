@@ -10,15 +10,10 @@ application.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file siz
 os.makedirs(application.config['UPLOAD_FOLDER'], exist_ok=True)
 application.secret_key = 'anything'
 
-# Database for development, use an actual database in production
-USERS = {
-    'admin': 'password123',
-    'user': 'demo123'
-}
 
 @application.route('/')
 def index():
-    return render_template('index.html', username=session['username'])
+    return render_template('index.html')
 
 
 @application.route('/upload', methods=['POST'])
