@@ -16,48 +16,12 @@ USERS = {
     'user': 'demo123'
 }
 
-# Login required decorator
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'username' not in session:
-            return redirect(url_for('login'))
-        return f(*args, **kwargs)
-    return decorated_function
-
-
 @application.route('/')
-@login_required  # ← ADD THIS
 def index():
     return render_template('index.html', username=session['username'])
 
 
-@application.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-
-        if username in USERS and USERS[username] == password:
-            session['username'] = username
-            return redirect(url_for('index'))
-        else:
-            return render_template('login.html', error='Invalid username or password')
-    
-    if 'username' in session:
-        return redirect(url_for('index'))
-
-    return render_template('login.html', error=None)
-
-
-@application.route('/logout', methods=['POST'])
-def logout():
-    session.pop('username', None)
-    return redirect(url_for('login'))
-
-
 @application.route('/upload', methods=['POST'])
-@login_required  # ← ADD THIS
 def upload_files():
     if 'files' not in request.files:
         return jsonify({'error': 'No files provided'}), 400
