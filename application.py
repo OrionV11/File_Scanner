@@ -44,7 +44,6 @@ def upload_files():
 
 
 @application.route('/files', methods=['GET'])
-@login_required  # ← ADD THIS
 def list_files():
     files = []
     for filename in os.listdir(application.config['UPLOAD_FOLDER']):
@@ -58,7 +57,6 @@ def list_files():
 
 
 @application.route('/delete/<filename>', methods=['DELETE'])
-@login_required  # ← ADD THIS
 def delete_file(filename):
     try:
         filepath = os.path.join(application.config['UPLOAD_FOLDER'], filename)
