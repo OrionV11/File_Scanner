@@ -1,6 +1,9 @@
 from flask import Flask, render_template, request, jsonify, url_for, redirect, session
 import os
+from scanner.scanner_core import scan_file_flask
 from functools import wraps
+import uuid
+from werkzeug.utils import secure_filename
 
 application = Flask(__name__)
 application.config['UPLOAD_FOLDER'] = 'uploads'
@@ -20,18 +23,56 @@ def index():
 def upload_files():
     if 'files' not in request.files:
         return jsonify({'error': 'No files provided'}), 400
-    
+
     files = request.files.getlist('files')
     uploaded_files = []
-    
+
     for file in files:
-        if file.filename == '':
+        if not file or file.filename == '':
             continue
-        
-        filepath = os.path.join(application.config['UPLOAD_FOLDER'], file.filename)
-        file.save(filepath)
-        uploaded_files.append(file.filename)
+
+
     
+        original_name = file.filename
+        safe_name = secure_filename(original_name)
+
+        if not safe_name:
+            uploaded_files.append({
+                "filename": original_name,
+                "status": "rejected",
+                "reason": "Invalid filename"
+            })
+            continue
+
+        unique_name = f"{uuid.uuid4().hex}_{safe_name}"
+        filepath = os.path.join(application.config['UPLOAD_FOLDER'], unique_name)
+
+        try:
+            file.save(filepath)
+
+            # Run scanner
+            scan_result = scan_file_flask(filepath)
+            print("SCAN RESULT:", scan_result, flush=True)
+
+            uploaded_files.append({
+                "filename": original_name,
+                "stored_as": unique_name,
+                "scan_result": scan_result
+            })
+
+        except Exception as e:
+            if os.path.exists(filepath):
+                try:
+                    os.remove(filepath)
+                except Exception:
+                    pass
+
+            uploaded_files.append({
+                "filename": original_name,
+                "status": "error",
+                "reason": str(e)
+            })
+
     return jsonify({
         'message': 'Files uploaded successfully',
         'files': uploaded_files
@@ -50,16 +91,21 @@ def list_files():
             })
     return jsonify(files)
 
-
 @application.route('/delete/<filename>', methods=['DELETE'])
 def delete_file(filename):
     try:
-        filepath = os.path.join(application.config['UPLOAD_FOLDER'], filename)
+        safe_name = secure_filename(filename)
+        if not safe_name:
+            return jsonify({'error': 'Invalid filename'}), 400
+
+        filepath = os.path.join(application.config['UPLOAD_FOLDER'], safe_name)
+
         if os.path.exists(filepath):
             os.remove(filepath)
             return jsonify({'message': 'File deleted successfully'})
-        else:
-            return jsonify({'error': 'File not found'}), 404
+
+        return jsonify({'error': 'File not found'}), 404
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

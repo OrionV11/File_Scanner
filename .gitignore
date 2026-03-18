@@ -4,4 +4,16 @@ __pycache__/
 *.log
 .env
 
+<<<<<<< HEAD
 .elasticbeanstalk/
+=======
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml
+.venv/
+env/
+__pycache__/
+uploads/
+.env
+>>>>>>> 08fbda9 (Final integration of file scanner with VirusTotal and validation)
