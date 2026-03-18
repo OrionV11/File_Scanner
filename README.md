@@ -7,3 +7,9 @@ for viruses and malware.
 I have created a requirements.txt for any packages that need to be installed to run the software
 
 cmd: pip install -r requirements.txt
+
+#UI
+The UI allows user to choose files to be scanned
+
+#scanner 
+Scanner uses API for virustotal to scan any infected files
