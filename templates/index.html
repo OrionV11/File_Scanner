@@ -282,6 +282,7 @@
                             <div class="file-size">${size}</div>
                         </div>
                     </div>
+		    <button class="remove-btn" style="background:#667eea" onclick="window.open('/report/${encodeURIComponent(file.name)}', '_blank')">Report</button>
                     <button class="remove-btn" onclick="removeFile('${file.name}')">Remove</button>
                 `;
                 

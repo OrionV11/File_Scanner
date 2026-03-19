@@ -1,9 +1,12 @@
 import asyncio
+import sys
+import os
 import csv
 import hashlib
 from pathlib import Path
 
 from .virustotal import vt_scan_or_lookup
+from .em_demo import export_report
 
 MAX_UPLOAD_MB = 16
 ALLOWED_EXT = {"txt", "pdf", "png", "jpg", "jpeg", "py", "csv"}
@@ -52,6 +55,8 @@ def scan_file_flask(filepath: str):
     hits = scan_for_signatures(data)
     local_status = "infected" if hits else "clean"
 
+    report_path = filepath + "_report.txt"
+    export_report(filepath, sha256, local_status, output_path=report_path)
     try:
         vt_result = asyncio.run(
             vt_scan_or_lookup(

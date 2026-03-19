@@ -1,8 +1,9 @@
-from flask import Flask, render_template, request, jsonify, url_for, redirect, session
+from flask import Flask, render_template, request, jsonify, url_for, redirect, session, send_file
 import os
 from scanner.scanner_core import scan_file_flask
 from functools import wraps
 import uuid
+import secrets
 from werkzeug.utils import secure_filename
 
 application = Flask(__name__)
@@ -11,7 +12,7 @@ application.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file siz
 
 # Create uploads folder if it doesn't exist
 os.makedirs(application.config['UPLOAD_FOLDER'], exist_ok=True)
-application.secret_key = 'anything'
+application.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 
 
 @application.route('/')
@@ -30,7 +31,6 @@ def upload_files():
     for file in files:
         if not file or file.filename == '':
             continue
-
 
     
         original_name = file.filename
@@ -83,6 +83,9 @@ def upload_files():
 def list_files():
     files = []
     for filename in os.listdir(application.config['UPLOAD_FOLDER']):
+        if filename.endswith('_report.txt'):
+             continue
+
         filepath = os.path.join(application.config['UPLOAD_FOLDER'], filename)
         if os.path.isfile(filepath):
             files.append({
@@ -109,6 +112,15 @@ def delete_file(filename):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@application.route('/report/<filename>', methods=['GET'])
+def download_report(filename):
+	safe_name = secure_filename(filename)
+	report_path = os.path.join(application.config['UPLOAD_FOLDER'], safe_name + '_report.txt')
+
+	if not os.path.exists(report_path):
+		return jsonify({'error': 'Report not found'}), 404
+
+	return send_file(report_path, as_attachment=True, download_name=f"{safe_name}_scan_report.txt")
 
 if __name__ == '__main__':
     application.run()
