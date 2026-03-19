@@ -22,29 +22,27 @@ import asyncio
 from typing import Dict, Optional
 
 import httpx
+from dotenv import load_dotenv
 
-VT_API_KEY_ENV = "VIRUSTOTAL_API_KEY"
+# Load .env
+load_dotenv()
+
+# Get API key
+VT_API_KEY = os.getenv("VIRUSTOTAL_API_KEY")
+if not VT_API_KEY:
+    raise RuntimeError("VIRUSTOTAL_API_KEY is not set")
+
 VT_BASE = "https://www.virustotal.com/api/v3"
 VT_GUI_FILE = "https://www.virustotal.com/gui/file/{sha256}/detection"
-# Public API commonly supports uploads up to 32MB on the standard endpoint.
-VT_MAX_UPLOAD_BYTES = 32 * 1024 * 1024
 
-# Polling defaults (keep conservative for free tier)
+VT_MAX_UPLOAD_BYTES = 32 * 1024 * 1024
 DEFAULT_POLL_ATTEMPTS = 10
 DEFAULT_POLL_SLEEP_SECONDS = 3
 
 
-def _api_key() -> str:
-    key = os.getenv(VT_API_KEY_ENV)
-    if not key:
-        raise RuntimeError(
-            f"{VT_API_KEY_ENV} is not set. Set it in your environment (e.g., export {VT_API_KEY_ENV}='...')."
-        )
-    return key
-
 
 def _headers() -> Dict[str, str]:
-    return {"x-apikey": _api_key()}
+    return {"x-apikey": VT_API_KEY}
 
 
 def _compact_report(
