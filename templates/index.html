@@ -375,7 +375,23 @@
             </div>
         </div>
     </div>
+    
+    <!-- Real-time Alerts -->
+    <div id="alertsContainer" style="margin: 25px 0; font-family: Arial, sans-serif;"></div>
 
+    <!-- Quarantine Section -->
+    <section style="margin-top: 50px; padding: 20px; border-top: 29x solid #ccc;">
+        <h2>Quarantined Files (High Risk)</h2>
+        <div id="quarantineContainer">
+            <p style="color: #666;">No files in quarantine yet.</p>
+        </div>
+    </section>
+
+    <!-- Admind toggle / Levels of access -->
+    <button id="adminButton" style="position: fixed; top: 20px; right: 20px; padding: 10px 15px; background: #0d6efd; color: white; border: none; border-radius: 5px; cursor: pointer; z-index: 1000;">
+        Admin Mode: off
+    </button>
+    
     <!-- Report Modal -->
     <div id="reportModal" class="modal-overlay">
         <div class="modal">
