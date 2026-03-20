@@ -8,7 +8,7 @@ from .em_demo import export_report
 
 MAX_UPLOAD_MB = 16
 CHUNK_SIZE = 4096  # LDF5: buffered I/O in 4KB chunks
-ALLOWED_EXT = {"txt", "pdf", "png", "jpg", "jpeg", "py", "csv"}
+ALLOWED_EXT = {"txt", "pdf", "png", "jpg", "jpeg", "py", "csv", "doc", "docx", "avi","mp3","mp4","zip","rar","xls","xlsx","wav", "mov", "gif"}
 SIGNATURE_FILE = Path(__file__).parent / "virus_signatures.csv"
 
 
