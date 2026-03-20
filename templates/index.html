@@ -13,18 +13,17 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            min-height: 100vh; 
+            background: linear-gradient(135deg, #1f35b3 0%, #701bb1 100%);
+            min-height: 100vh;
+            padding: 0;
         }
 
         .container {
             background: white;
-            border-radius: 0;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             padding: 40px 60px;
             width: 100%;
             max-width: 100%;
             min-height: 100vh;
-            margin: 0;
         }
 
         h1 {
@@ -88,6 +87,7 @@
             justify-content: space-between;
             align-items: center;
             transition: all 0.2s ease;
+            border-left: 4px solid #ccc;
         }
 
         .file-item:hover {
@@ -95,30 +95,78 @@
             transform: translateX(5px);
         }
 
+        .file-item.clean {
+            border-left-color: #28a745;
+        }
+
+        .file-item.infected {
+            border-left-color: #dc3545;
+        }
+
+        .file-item.rejected {
+            border-left-color: #ffc107;
+        }
+
+        .file-item.unknown {
+            border-left-color: #aaa;
+        }
+
         .file-info {
             display: flex;
             align-items: center;
             gap: 15px;
+            flex: 1;
         }
 
         .file-icon {
-            font-size: 24px;
+            font-size: 28px;
         }
 
         .file-details {
             display: flex;
             flex-direction: column;
+            gap: 4px;
         }
 
         .file-name {
             color: #333;
             font-weight: 600;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
+            font-size: 15px;
         }
 
-        .file-size {
+        .file-meta {
             color: #888;
             font-size: 12px;
+        }
+
+        .file-sha {
+            color: #aaa;
+            font-size: 11px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .scan-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: white;
+        }
+
+        .scan-badge.clean     { background: #28a745; }
+        .scan-badge.infected  { background: #dc3545; }
+        .scan-badge.rejected  { background: #ffc107; color: #333; }
+        .scan-badge.unknown   { background: #aaa; }
+
+        .scan-info-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 2px;
         }
 
         .btn {
@@ -154,7 +202,7 @@
         .btn-group {
             display: flex;
             gap: 8px;
-        
+            flex-shrink: 0;
         }
 
         .empty-state {
@@ -182,6 +230,31 @@
             color: #721c24;
         }
 
+        /* Summary bar */
+        .summary-bar {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            padding: 15px 20px;
+            background: #f8f9ff;
+            border-radius: 10px;
+            flex-wrap: wrap;
+        }
+
+        .summary-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .summary-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
         /* Modal */
         .modal-overlay {
             display: none;
@@ -204,7 +277,7 @@
             background: white;
             border-radius: 15px;
             padding: 30px;
-            max-width: 600px;
+            max-width: 650px;
             width: 90%;
             max-height: 80vh;
             overflow-y: auto;
@@ -263,7 +336,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>📁 File Upload</h1>
+        <h1>📁 File Upload & Scanner</h1>
 
         <div class="upload-area" id="uploadArea">
             <div class="upload-text">Click to upload files</div>
@@ -276,6 +349,27 @@
 
         <div class="file-list">
             <h2>Uploaded Files</h2>
+
+            <!-- Summary bar -->
+            <div class="summary-bar" id="summaryBar" style="display:none;">
+                <div class="summary-item">
+                    <div class="summary-dot" style="background:#28a745;"></div>
+                    <span id="countClean">0 Clean</span>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-dot" style="background:#dc3545;"></div>
+                    <span id="countInfected">0 Infected</span>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-dot" style="background:#ffc107;"></div>
+                    <span id="countRejected">0 Rejected</span>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-dot" style="background:#aaa;"></div>
+                    <span id="countUnknown">0 Unknown</span>
+                </div>
+            </div>
+
             <div id="fileListContainer">
                 <div class="empty-state">No files uploaded yet</div>
             </div>
@@ -301,7 +395,6 @@
         const statusMessage = document.getElementById('statusMessage');
 
         uploadArea.addEventListener('click', () => fileInput.click());
-
         fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
 
         uploadArea.addEventListener('dragover', (e) => {
@@ -332,7 +425,7 @@
                 const result = await response.json();
 
                 if (response.ok) {
-                    showStatus('Files uploaded successfully!', 'success');
+                    showStatus('Files uploaded and scanned successfully!', 'success');
                     loadUploadedFiles();
                 } else {
                     showStatus(result.error || 'Upload failed', 'error');
@@ -357,24 +450,46 @@
         function displayFiles(files) {
             if (files.length === 0) {
                 fileListContainer.innerHTML = '<div class="empty-state">No files uploaded yet</div>';
+                document.getElementById('summaryBar').style.display = 'none';
                 return;
             }
+
+            // Count scan statuses for summary bar
+            const counts = { clean: 0, infected: 0, rejected: 0, unknown: 0 };
 
             fileListContainer.innerHTML = '';
 
             files.forEach((file) => {
+                const scan = file.scan || {};
+                const localScan = scan.local_scan || (scan.status === 'rejected' ? 'rejected' : 'unknown');
+                const statusKey = ['clean','infected','rejected'].includes(localScan) ? localScan : 'unknown';
+                counts[statusKey]++;
+
                 const fileItem = document.createElement('div');
-                fileItem.className = 'file-item';
+                fileItem.className = `file-item ${statusKey}`;
 
                 const icon = getFileIcon(file.name);
                 const size = formatFileSize(file.size);
+                const sha = scan.sha256
+                    ? `${scan.sha256.substring(0, 20)}...`
+                    : null;
+
+                const sigCount = scan.signatures?.length || 0;
+                const sigText = statusKey === 'infected'
+                    ? `⚠️ ${sigCount} signature${sigCount !== 1 ? 's' : ''} matched`
+                    : '';
 
                 fileItem.innerHTML = `
                     <div class="file-info">
                         <div class="file-icon">${icon}</div>
                         <div class="file-details">
                             <div class="file-name">${file.name}</div>
-                            <div class="file-size">${size}</div>
+                            <div class="file-meta">${size}${sha ? ` &nbsp;|&nbsp; <span class="file-sha">SHA256: ${sha}</span>` : ''}</div>
+                            <div class="scan-info-row">
+                                <span class="scan-badge ${statusKey}">${statusKey}</span>
+                                ${sigText ? `<span style="color:#dc3545; font-size:12px;">${sigText}</span>` : ''}
+                                ${scan.reason ? `<span style="color:#888; font-size:12px;">${scan.reason}</span>` : ''}
+                            </div>
                         </div>
                     </div>
                     <div class="btn-group">
@@ -385,6 +500,13 @@
 
                 fileListContainer.appendChild(fileItem);
             });
+
+            // Update summary bar
+            document.getElementById('summaryBar').style.display = 'flex';
+            document.getElementById('countClean').textContent    = `${counts.clean} Clean`;
+            document.getElementById('countInfected').textContent = `${counts.infected} Infected`;
+            document.getElementById('countRejected').textContent = `${counts.rejected} Rejected`;
+            document.getElementById('countUnknown').textContent  = `${counts.unknown} Unknown`;
         }
 
         async function viewReport(filename) {
@@ -398,12 +520,10 @@
 
             try {
                 const response = await fetch(`/report/${encodeURIComponent(filename)}`);
-
                 if (!response.ok) {
                     content.textContent = 'Report not found for this file.';
                     return;
                 }
-
                 content.textContent = await response.text();
             } catch (error) {
                 content.textContent = 'Failed to load report: ' + error.message;
@@ -416,7 +536,6 @@
             document.getElementById('reportFilename').textContent = '';
         }
 
-        // Close modal on background click
         document.getElementById('reportModal').addEventListener('click', function(e) {
             if (e.target === this) closeReport();
         });

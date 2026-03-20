@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request, jsonify, url_for, redirect, session, send_file
 import os
 from scanner.scanner_core import scan_file_flask
-from functools import wraps
 import uuid
 import secrets
 from werkzeug.utils import secure_filename
@@ -9,10 +8,13 @@ from werkzeug.utils import secure_filename
 application = Flask(__name__)
 application.config['UPLOAD_FOLDER'] = 'uploads'
 application.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+application.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
+
+# In-memory scan cache — stores scan results by stored filename
+scan_cache = {}
 
 # Create uploads folder if it doesn't exist
 os.makedirs(application.config['UPLOAD_FOLDER'], exist_ok=True)
-application.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 
 
 @application.route('/')
@@ -32,7 +34,6 @@ def upload_files():
         if not file or file.filename == '':
             continue
 
-    
         original_name = file.filename
         safe_name = secure_filename(original_name)
 
@@ -50,9 +51,11 @@ def upload_files():
         try:
             file.save(filepath)
 
-            # Run scanner
             scan_result = scan_file_flask(filepath)
             print("SCAN RESULT:", scan_result, flush=True)
+
+            # Cache scan result by stored filename
+            scan_cache[unique_name] = scan_result
 
             uploaded_files.append({
                 "filename": original_name,
@@ -84,15 +87,30 @@ def list_files():
     files = []
     for filename in os.listdir(application.config['UPLOAD_FOLDER']):
         if filename.endswith('_report.txt'):
-             continue
-
+            continue
         filepath = os.path.join(application.config['UPLOAD_FOLDER'], filename)
         if os.path.isfile(filepath):
             files.append({
                 'name': filename,
-                'size': os.path.getsize(filepath)
+                'size': os.path.getsize(filepath),
+                'scan': scan_cache.get(filename, {})
             })
     return jsonify(files)
+
+
+@application.route('/report/<filename>', methods=['GET'])
+def view_report(filename):
+    safe_name = secure_filename(filename)
+    if not safe_name:
+        return jsonify({'error': 'Invalid filename'}), 400
+
+    report_path = os.path.join(application.config['UPLOAD_FOLDER'], safe_name + '_report.txt')
+
+    if not os.path.exists(report_path):
+        return jsonify({'error': 'Report not found'}), 404
+
+    return send_file(report_path, as_attachment=False, mimetype='text/plain')
+
 
 @application.route('/delete/<filename>', methods=['DELETE'])
 def delete_file(filename):
@@ -103,6 +121,14 @@ def delete_file(filename):
 
         filepath = os.path.join(application.config['UPLOAD_FOLDER'], safe_name)
 
+        # Remove from scan cache
+        scan_cache.pop(safe_name, None)
+
+        # Delete report if it exists
+        report_path = filepath + '_report.txt'
+        if os.path.exists(report_path):
+            os.remove(report_path)
+
         if os.path.exists(filepath):
             os.remove(filepath)
             return jsonify({'message': 'File deleted successfully'})
@@ -112,15 +138,6 @@ def delete_file(filename):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@application.route('/report/<filename>', methods=['GET'])
-def download_report(filename):
-	safe_name = secure_filename(filename)
-	report_path = os.path.join(application.config['UPLOAD_FOLDER'], safe_name + '_report.txt')
-
-	if not os.path.exists(report_path):
-		return jsonify({'error': 'Report not found'}), 404
-
-	return send_file(report_path, as_attachment=True, download_name=f"{safe_name}_scan_report.txt")
 
 if __name__ == '__main__':
-    application.run()
+    application.run(debug=True)
