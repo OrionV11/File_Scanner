@@ -13,21 +13,18 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #e3e4ea 0%, #fcf8ff 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
+            min-height: 100vh; 
         }
 
         .container {
             background: white;
-            border-radius: 20px;
+            border-radius: 0;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            padding: 40px;
-            max-width: 600px;
+            padding: 40px 60px;
             width: 100%;
+            max-width: 100%;
+            min-height: 100vh;
+            margin: 0;
         }
 
         h1 {
@@ -54,11 +51,6 @@
         .upload-area.dragover {
             background: #e0e7ff;
             border-color: #4f46e5;
-        }
-
-        .upload-icon {
-            font-size: 48px;
-            margin-bottom: 15px;
         }
 
         .upload-text {
@@ -129,8 +121,7 @@
             font-size: 12px;
         }
 
-        .remove-btn {
-            background: #ff4757;
+        .btn {
             color: white;
             border: none;
             border-radius: 5px;
@@ -140,9 +131,30 @@
             font-size: 14px;
         }
 
-        .remove-btn:hover {
-            background: #ff3838;
+        .btn:hover {
             transform: scale(1.05);
+        }
+
+        .btn-report {
+            background: #667eea;
+        }
+
+        .btn-report:hover {
+            background: #5a6fd6;
+        }
+
+        .btn-remove {
+            background: #ff4757;
+        }
+
+        .btn-remove:hover {
+            background: #ff3838;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+        
         }
 
         .empty-state {
@@ -169,25 +181,115 @@
             background: #f8d7da;
             color: #721c24;
         }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        }
+
+        .modal h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+
+        .modal-filename {
+            color: #667eea;
+            font-size: 13px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .report-content {
+            background: #f8f9ff;
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 13px;
+            white-space: pre-wrap;
+            color: #333;
+            line-height: 1.6;
+            font-family: 'Courier New', monospace;
+            border-left: 4px solid #667eea;
+        }
+
+        .modal-footer {
+            margin-top: 20px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .modal-close {
+            padding: 10px 25px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .modal-close:hover {
+            background: #5a6fd6;
+            transform: translateY(-1px);
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1> File Upload</h1>
-        
+        <h1>📁 File Upload</h1>
+
         <div class="upload-area" id="uploadArea">
             <div class="upload-text">Click to upload files</div>
             <div class="upload-subtext">or drag and drop files here</div>
         </div>
-        
+
         <input type="file" id="fileInput" multiple>
-        
+
         <div id="statusMessage" class="status-message"></div>
-        
+
         <div class="file-list">
             <h2>Uploaded Files</h2>
             <div id="fileListContainer">
                 <div class="empty-state">No files uploaded yet</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Modal -->
+    <div id="reportModal" class="modal-overlay">
+        <div class="modal">
+            <h2>🔍 Scan Report</h2>
+            <div id="reportFilename" class="modal-filename"></div>
+            <pre id="reportContent" class="report-content">Loading...</pre>
+            <div class="modal-footer">
+                <button class="modal-close" onclick="closeReport()">Close</button>
             </div>
         </div>
     </div>
@@ -198,22 +300,16 @@
         const fileListContainer = document.getElementById('fileListContainer');
         const statusMessage = document.getElementById('statusMessage');
 
-        uploadArea.addEventListener('click', () => {
-            fileInput.click();
-        });
+        uploadArea.addEventListener('click', () => fileInput.click());
 
-        fileInput.addEventListener('change', (e) => {
-            handleFiles(e.target.files);
-        });
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
 
         uploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
             uploadArea.classList.add('dragover');
         });
 
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
+        uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
 
         uploadArea.addEventListener('drop', (e) => {
             e.preventDefault();
@@ -223,7 +319,6 @@
 
         async function handleFiles(files) {
             const formData = new FormData();
-            
             for (let file of files) {
                 formData.append('files', file);
             }
@@ -266,14 +361,14 @@
             }
 
             fileListContainer.innerHTML = '';
-            
+
             files.forEach((file) => {
                 const fileItem = document.createElement('div');
                 fileItem.className = 'file-item';
-                
+
                 const icon = getFileIcon(file.name);
                 const size = formatFileSize(file.size);
-                
+
                 fileItem.innerHTML = `
                     <div class="file-info">
                         <div class="file-icon">${icon}</div>
@@ -282,13 +377,49 @@
                             <div class="file-size">${size}</div>
                         </div>
                     </div>
-		    <button class="remove-btn" style="background:#667eea" onclick="window.open('/report/${encodeURIComponent(file.name)}', '_blank')">Report</button>
-                    <button class="remove-btn" onclick="removeFile('${file.name}')">Remove</button>
+                    <div class="btn-group">
+                        <button class="btn btn-report" onclick="viewReport('${file.name}')">Report</button>
+                        <button class="btn btn-remove" onclick="removeFile('${file.name}')">Remove</button>
+                    </div>
                 `;
-                
+
                 fileListContainer.appendChild(fileItem);
             });
         }
+
+        async function viewReport(filename) {
+            const modal = document.getElementById('reportModal');
+            const content = document.getElementById('reportContent');
+            const filenameEl = document.getElementById('reportFilename');
+
+            content.textContent = 'Loading...';
+            filenameEl.textContent = filename;
+            modal.classList.add('active');
+
+            try {
+                const response = await fetch(`/report/${encodeURIComponent(filename)}`);
+
+                if (!response.ok) {
+                    content.textContent = 'Report not found for this file.';
+                    return;
+                }
+
+                content.textContent = await response.text();
+            } catch (error) {
+                content.textContent = 'Failed to load report: ' + error.message;
+            }
+        }
+
+        function closeReport() {
+            document.getElementById('reportModal').classList.remove('active');
+            document.getElementById('reportContent').textContent = '';
+            document.getElementById('reportFilename').textContent = '';
+        }
+
+        // Close modal on background click
+        document.getElementById('reportModal').addEventListener('click', function(e) {
+            if (e.target === this) closeReport();
+        });
 
         async function removeFile(filename) {
             try {
@@ -310,14 +441,13 @@
         function getFileIcon(filename) {
             const ext = filename.split('.').pop().toLowerCase();
             const icons = {
-                'pdf': '📄',
-                'doc': '📝', 'docx': '📝',
+                'pdf': '📄', 'doc': '📝', 'docx': '📝',
                 'xls': '📊', 'xlsx': '📊',
                 'jpg': '🖼️', 'jpeg': '🖼️', 'png': '🖼️', 'gif': '🖼️',
                 'mp4': '🎬', 'avi': '🎬', 'mov': '🎬',
                 'mp3': '🎵', 'wav': '🎵',
                 'zip': '🗜️', 'rar': '🗜️',
-                'txt': '📃'
+                'txt': '📃', 'py': '🐍', 'csv': '📊'
             };
             return icons[ext] || '📎';
         }
@@ -334,13 +464,9 @@
             statusMessage.textContent = message;
             statusMessage.className = `status-message ${type}`;
             statusMessage.style.display = 'block';
-            
-            setTimeout(() => {
-                statusMessage.style.display = 'none';
-            }, 3000);
+            setTimeout(() => { statusMessage.style.display = 'none'; }, 3000);
         }
 
-        // Load files on page load
         loadUploadedFiles();
     </script>
 </body>
