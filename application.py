@@ -59,27 +59,23 @@ def upload_files():
             stats = scan_result.get('last_analysis_stats', {}) if isinstance(scan_result, dict) else {}
             malicious = stats.get('malicious', 0)
 
+            quarantined = False
+            reason = None
+
             if malicious > 10:
                 quarantine_path = os.path.join(QUARANTINE_FOLDER, unique_name)
                 shutil.move(filepath, quarantine_path)
-                uploaded_files[-1]['quarantined'] = True
-                uploaded_files[-1]['reason'] = 'High risk (malicious detections > 10)'
+                quarantined = True
+                reason = f'High risk (malicious detections: {malicious})'
 
             # Cache scan result by stored filename
             scan_cache[unique_name] = scan_result
             uploaded_files.append({
                 "filename": original_name,
                 "stored_as": unique_name,
-                "scan_result": scan_result
-            })
-
-            # Cache scan result by stored filename
-            scan_cache[unique_name] = scan_result
-
-            uploaded_files.append({
-                "filename": original_name,
-                "stored_as": unique_name,
-                "scan_result": scan_result
+                "scan_result": scan_result,
+                "quarantined": quarantined,
+                "reason": reason
             })
 
         except Exception as e:
