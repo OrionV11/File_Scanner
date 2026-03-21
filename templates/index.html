@@ -732,19 +732,54 @@
 
         function recoverFile(filename) {
             if (confirm('Recover ' + filename + '?')) {
-                quarantinedFiles = quarantinedFiles.filter(f => f !== filename);
-                updateQuarantine();
-                alert('Recovered ' + filename + ' (backend to be added)');
+                fetch('/recover/' + encodeURIComponent(filename), {
+                    method: 'POST'
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        quarantinedFiles = quarantinedFiles.filter(f => f !== filename);
+                        updateQuarantine();
+                        showStatus('File recovered successfully', 'success');
+                    } else {
+                        showStatus('Recovery failed: ' + (data.error || 'Unknown'), 'error');
+                    }
+                })
+                .catch(err => showStatus('Error recovering file: ' + err, 'error'));
+            }
+        }
+        
+        function deleteFile(filename) {
+            if (confirm('Delete ' + filename + ' permanently?')) {
+                fetch('/delete/' + encodeURIComponent(filename), {
+                    method: 'DELETE'
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        quarantinedFiles = quarantinedFiles.filter(f => f !== filename);
+                        updateQuarantine();
+                        showStatus('File deleted permanently', 'success');
+                    } else {
+                        showStatus('Deletion failed: ' + (data.error || 'Unknown'), 'error');
+                    }
+                })
+                .catch(err => showStatus('Error deleting file: ' + err, 'error'));
             }
         }
 
-        function deleteFile(filename) {
-            if (confirm('Delete ' + filename + ' permanently?')) {
-                quarantinedFiles = quarantinedFiles.filter(f => f !== filename);
+        // Load quarantined files from backend on page load
+        async function loadQuarantine() {
+            try {
+                const res = await fetch('/quarantine');
+                const files = await res.json();
+                quarantinedFiles = files;
                 updateQuarantine();
-                alert('Deleted ' + filename + ' (backend to be added)');
+            } catch (err) {
+                console.error('Failed to load quarantine:', err);
             }
         }
+        loadQuarantine();
 
     </script>
     
