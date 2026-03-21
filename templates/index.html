@@ -470,7 +470,7 @@
 
                         if (file.quarantined) {
                             addToQuarantine(file.filename || file.name);
-                            showStatus('${file.filename || file.name} was quarantined due to high risk', 'warning');
+                            showStatus(`${file.filename || file.name} was quarantined due to high risk`, 'warning');
                         }
                     });
 
