@@ -604,5 +604,122 @@
 
         loadUploadedFiles();
     </script>
+
+    <script>
+        
+        let isAdmin = false;
+        
+        // Admin toggle
+        document.getElementById('adminButton').addEventListener('click', function() {
+            isAdmin = !isAdmin;
+            this.textContent = isAdmin ? 'Admin Mode: On' : 'Admin Mode: Off';
+            const quarantineSection = document.getElementById('quarantineContainer').parentElement;
+            quarantineSection.style.display = isAdmin ? 'block' : 'none';
+        });
+
+        //show alert with severity
+        function showAlert(filename, severity, message) {
+            const container = document.getElementById('alertsContainer');
+
+            let bgColor = '#d4edda';     // safe
+            let borderColor = '#198754'; // green
+            let textColor = '#0f5132';
+            let title = 'SAFE';
+
+            if (severity === 'high') {
+                bgColor = '#f8d7da';
+                borderColor = '#dc3545';
+                textColor = '#842029';
+                title = 'HIGH RISK!';
+            } else if (severity === 'medium') {
+                bgColor = '#fff3cd';
+                borderColor = '#ffc107';
+                textColor = '#664d03';
+                title = 'MEDIUM RISK';
+            } else if (severity === 'low') {
+                bgColor = '#fff3cd';
+                borderColor = '#fd7e14';
+                textColor = '#664d03';
+                title = 'LOW RISK';
+            }
+
+            const alertDiv = document.createElement('div');
+            alertDiv.style.background = bgColor;
+            alertDiv.style.border = '3px solid ' + borderColor;
+            alertDiv.style.color = textColor;
+            alertDiv.style.padding = '16px';
+            alertDiv.style.margin = '12px 0';
+            alertDiv.style.borderRadius = '6px';
+
+            alertDiv.innerHTML = `
+                <strong style="font-size: 1.2em;">${title} - ${filename}</strong><br>
+                ${message}<br>
+                <small>Severity: ${severity.toUpperCase()}</small>
+            `;
+
+            container.appendChild(alertDiv);
+            container.scrollIntoView({ behavior: 'smooth' });
+
+            //quarantine high risk
+            if (severity === 'high') {
+              addToQuarantine(filename);
+            }
+        }
+
+        //quarantine list
+        let quarantinedFiles = [];
+
+        function addToQuarantine(filename) {
+            if (!quarantinedFiles.includes(filename)) {
+                quarantinedFiles.push(filename);
+                updateQuarantine();
+            }
+        }
+
+        function updateQuarantine() {
+            const container = document.getElementById('quarantineContainer');
+
+            if (quarantinedFiles.length === 0) {
+                container.innerHTML = '<p style="color: #666;">No files in quarantine yet.</p>';
+                return;
+            }
+
+            container.innerHTML = '';
+
+            quarantinedFiles.forEach(function(file) {
+                const item = document.createElement('div');
+                item.style.padding = '12px';
+                item.style.background = '#f8f9fa';
+                item.style.margin = '8px 0';
+                item.style.borderRadius = '6px';
+
+                item.innerHTML = `
+                    <strong>${file}</strong> – Quarantined (High Risk)
+                    <button onclick="recoverFile('${file}')" style="margin-left:15px; padding:6px 12px; background:#198754; color:white; border:none; border-radius:4px; cursor:pointer;">Recover</button>
+                    <button onclick="deleteFile('${file}')" style="margin-left:8px; padding:6px 12px; background:#dc3545; color:white; border:none; border-radius:4px; cursor:pointer;">Delete</button>
+                `;
+
+                container.appendChild(item);
+            });
+        }
+
+        function recoverFile(filename) {
+            if (confirm('Recover ' + filename + '?')) {
+                quarantinedFiles = quarantinedFiles.filter(f => f !== filename);
+                updateQuarantine();
+                alert('Recovered ' + filename + ' (backend to be added)');
+            }
+        }
+
+        function deleteFile(filename) {
+            if (confirm('Delete ' + filename + ' permanently?')) {
+                quarantinedFiles = quarantinedFiles.filter(f => f !== filename);
+                updateQuarantine();
+                alert('Deleted ' + filename + ' (backend to be added)');
+            }
+        }
+
+    </script>
+    
 </body>
 </html>
