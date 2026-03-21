@@ -3,6 +3,7 @@ import os
 from scanner.scanner_core import scan_file_flask
 import uuid
 import secrets
+import shutil
 from werkzeug.utils import secure_filename
 
 application = Flask(__name__)
@@ -138,6 +139,30 @@ def delete_file(filename):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+QUARANTINE_FOLDER = 'quarantine'
+os.makedirs(QUARANTINE_FOLDER, exist_ok=True)
+
+@application.route('/quarantine', methods=['GET'])
+def get_quarantine():
+    files = [f for f in os.listdir(QUARANTINE_FOLDER) if os.path.isfile(os.path.join(QUARANTINE_FOLDER, f))]
+    return jsonify(files)
+
+@application.route('/recover/<filename>', methods=['POST'])
+def recover_file(filename):
+    src = os.path.join(QUARANTINE_FOLDER, secure_filename(filename))
+    dst = os.path.join(UPLOAD_FOLDER, secure_filename(filename))  # UPLOAD_FOLDER should already be defined earlier
+    if os.path.exists(src):
+        shutil.move(src, dst)
+        return jsonify({'success': True, 'message': f'Recovered {filename}'})
+    return jsonify({'error': 'File not found'}), 404
+
+@application.route('/delete/<filename>', methods=['DELETE'])
+def delete_quarantined(filename):
+    path = os.path.join(QUARANTINE_FOLDER, secure_filename(filename))
+    if os.path.exists(path):
+        os.remove(path)
+        return jsonify({'success': True, 'message': f'Deleted {filename}'})
+    return jsonify({'error': 'File not found'}), 404
 
 if __name__ == '__main__':
     application.run(debug=True)
