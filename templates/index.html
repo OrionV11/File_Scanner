@@ -375,7 +375,23 @@
             </div>
         </div>
     </div>
+    
+    <!-- Real-time Alerts -->
+    <div id="alertsContainer" style="margin: 25px 0; font-family: Arial, sans-serif;"></div>
 
+    <!-- Quarantine Section -->
+    <section style="margin-top: 50px; padding: 20px; border-top: 2px solid #ccc;">
+        <h2>Quarantined Files (High Risk)</h2>
+        <div id="quarantineContainer">
+            <p style="color: #666;">No files in quarantine yet.</p>
+        </div>
+    </section>
+
+    <!-- Admind toggle / Levels of access -->
+    <button id="adminButton" style="position: fixed; top: 20px; right: 20px; padding: 10px 15px; background: #0d6efd; color: white; border: none; border-radius: 5px; cursor: pointer; z-index: 1000;">
+        Admin Mode: Off
+    </button>
+    
     <!-- Report Modal -->
     <div id="reportModal" class="modal-overlay">
         <div class="modal">
@@ -426,6 +442,37 @@
 
                 if (response.ok) {
                     showStatus('Files uploaded and scanned successfully!', 'success');
+
+                    //trigger alerts and quarantine based on the scan results
+                    result.files.forEach(file => {
+                        const scan = file.scan_result || file.scan || {};
+                        const localScan = scan.local_scan || (scan.status === 'rejected' ? 'rejected' : 'unknown');
+
+                        let severity = 'safe';
+                        let message = 'Scan complete - file appears clean.';
+
+                        if (localScan === 'infected') {
+                            severity = 'high';
+                            message = 'HIGH RISK DETECTED! Infected file - possible malware/cryptodrainer. Do NOT open or execute.';
+                        } else if (localScan === 'rejected') {
+                            severity = 'medium';
+                            message = 'Medium risk - file rejected by scanner rules.';
+                        } else if (localScan === 'unknown') {
+                            severity = 'low';
+                            message = 'Low risk - unknown scan status, review report.';
+                        } else {
+                            severity = 'safe';
+                            message = 'Scan complete - file appears clean.';
+                        }
+
+                        showAlert(file.filename || file.name, severity, message);
+
+                        if (file.quarantined) {
+                            addToQuarantine(file.filename || file.name);
+                            showStatus(`${file.filename || file.name} was quarantined due to high risk`, 'warning');
+                        }
+                    });
+
                     loadUploadedFiles();
                 } else {
                     showStatus(result.error || 'Upload failed', 'error');
@@ -588,5 +635,157 @@
 
         loadUploadedFiles();
     </script>
+
+    <script>
+        
+        let isAdmin = false;
+        
+        // Admin toggle
+        document.getElementById('adminButton').addEventListener('click', function() {
+            isAdmin = !isAdmin;
+            this.textContent = isAdmin ? 'Admin Mode: On' : 'Admin Mode: Off';
+            const quarantineSection = document.getElementById('quarantineContainer').parentElement;
+            quarantineSection.style.display = isAdmin ? 'block' : 'none';
+        });
+
+        //show alert with severity
+        function showAlert(filename, severity, message) {
+            const container = document.getElementById('alertsContainer');
+
+            let bgColor = '#d4edda';     // safe
+            let borderColor = '#198754'; // green
+            let textColor = '#0f5132';
+            let title = 'SAFE';
+
+            if (severity === 'high') {
+                bgColor = '#f8d7da';
+                borderColor = '#dc3545';
+                textColor = '#842029';
+                title = 'HIGH RISK!';
+            } else if (severity === 'medium') {
+                bgColor = '#fff3cd';
+                borderColor = '#ffc107';
+                textColor = '#664d03';
+                title = 'MEDIUM RISK';
+            } else if (severity === 'low') {
+                bgColor = '#fff3cd';
+                borderColor = '#fd7e14';
+                textColor = '#664d03';
+                title = 'LOW RISK';
+            }
+
+            const alertDiv = document.createElement('div');
+            alertDiv.style.background = bgColor;
+            alertDiv.style.border = '3px solid ' + borderColor;
+            alertDiv.style.color = textColor;
+            alertDiv.style.padding = '16px';
+            alertDiv.style.margin = '12px 0';
+            alertDiv.style.borderRadius = '6px';
+
+            alertDiv.innerHTML = `
+                <strong style="font-size: 1.2em;">${title} - ${filename}</strong><br>
+                ${message}<br>
+                <small>Severity: ${severity.toUpperCase()}</small>
+            `;
+
+            container.appendChild(alertDiv);
+            container.scrollIntoView({ behavior: 'smooth' });
+
+            //quarantine high risk
+            if (severity === 'high') {
+              addToQuarantine(filename);
+            }
+        }
+
+        //quarantine list
+        let quarantinedFiles = [];
+
+        function addToQuarantine(filename) {
+            if (!quarantinedFiles.includes(filename)) {
+                quarantinedFiles.push(filename);
+                updateQuarantine();
+            }
+        }
+
+        function updateQuarantine() {
+            const container = document.getElementById('quarantineContainer');
+
+            if (quarantinedFiles.length === 0) {
+                container.innerHTML = '<p style="color: #666;">No files in quarantine yet.</p>';
+                return;
+            }
+
+            container.innerHTML = '';
+
+            quarantinedFiles.forEach(function(file) {
+                const item = document.createElement('div');
+                item.style.padding = '12px';
+                item.style.background = '#f8f9fa';
+                item.style.margin = '8px 0';
+                item.style.borderRadius = '6px';
+
+                item.innerHTML = `
+                    <strong>${file}</strong> – Quarantined (High Risk)
+                    <button onclick="recoverFile('${file}')" style="margin-left:15px; padding:6px 12px; background:#198754; color:white; border:none; border-radius:4px; cursor:pointer;">Recover</button>
+                    <button onclick="deleteFile('${file}')" style="margin-left:8px; padding:6px 12px; background:#dc3545; color:white; border:none; border-radius:4px; cursor:pointer;">Delete</button>
+                `;
+
+                container.appendChild(item);
+            });
+        }
+
+        function recoverFile(filename) {
+            if (confirm('Recover ' + filename + '?')) {
+                fetch('/recover/' + encodeURIComponent(filename), {
+                    method: 'POST'
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        quarantinedFiles = quarantinedFiles.filter(f => f !== filename);
+                        updateQuarantine();
+                        showStatus('File recovered successfully', 'success');
+                    } else {
+                        showStatus('Recovery failed: ' + (data.error || 'Unknown'), 'error');
+                    }
+                })
+                .catch(err => showStatus('Error recovering file: ' + err, 'error'));
+            }
+        }
+        
+        function deleteFile(filename) {
+            if (confirm('Delete ' + filename + ' permanently?')) {
+                fetch('/delete/' + encodeURIComponent(filename), {
+                    method: 'DELETE'
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        quarantinedFiles = quarantinedFiles.filter(f => f !== filename);
+                        updateQuarantine();
+                        showStatus('File deleted permanently', 'success');
+                    } else {
+                        showStatus('Deletion failed: ' + (data.error || 'Unknown'), 'error');
+                    }
+                })
+                .catch(err => showStatus('Error deleting file: ' + err, 'error'));
+            }
+        }
+
+        // Load quarantined files from backend on page load
+        async function loadQuarantine() {
+            try {
+                const res = await fetch('/quarantine');
+                const files = await res.json();
+                quarantinedFiles = files;
+                updateQuarantine();
+            } catch (err) {
+                console.error('Failed to load quarantine:', err);
+            }
+        }
+        loadQuarantine();
+
+    </script>
+    
 </body>
 </html>
