@@ -399,6 +399,7 @@
             <div id="reportFilename" class="modal-filename"></div>
             <pre id="reportContent" class="report-content">Loading...</pre>
             <div class="modal-footer">
+                <button class="btn btn-report" onclick="downloadReport()">Download Report</button>
                 <button class="modal-close" onclick="closeReport()">Close</button>
             </div>
         </div>
@@ -425,6 +426,21 @@
             uploadArea.classList.remove('dragover');
             handleFiles(e.dataTransfer.files);
         });
+
+        function downloadReport() {
+            const filename = document.getElementById('reportFilename').textContent;
+            const content = document.getElementById('reportContent').textContent;
+
+            if (!content || content === 'Loading...') return;
+
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename + '_report.txt';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
 
         async function handleFiles(files) {
             const formData = new FormData();
@@ -468,7 +484,7 @@
                         showAlert(file.filename || file.name, severity, message);
 
                         if (file.quarantined) {
-                            addToQuarantine(file.filename || file.name);
+                            addToQuarantine(file.stored_as || file.filename || file.name);
                             showStatus(`${file.filename || file.name} was quarantined due to high risk`, 'warning');
                         }
                     });
@@ -691,10 +707,6 @@
             container.appendChild(alertDiv);
             container.scrollIntoView({ behavior: 'smooth' });
 
-            //quarantine high risk
-            if (severity === 'high') {
-              addToQuarantine(filename);
-            }
         }
 
         //quarantine list
@@ -744,6 +756,7 @@
                     if (data.success) {
                         quarantinedFiles = quarantinedFiles.filter(f => f !== filename);
                         updateQuarantine();
+                        loadUploadedFiles();
                         showStatus('File recovered successfully', 'success');
                     } else {
                         showStatus('Recovery failed: ' + (data.error || 'Unknown'), 'error');
@@ -755,7 +768,7 @@
         
         function deleteFile(filename) {
             if (confirm('Delete ' + filename + ' permanently?')) {
-                fetch('/delete/' + encodeURIComponent(filename), {
+                fetch('/quarantine/delete/' + encodeURIComponent(filename), {
                     method: 'DELETE'
                 })
                 .then(res => res.json())

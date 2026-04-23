@@ -5,6 +5,8 @@ import uuid
 import secrets
 import shutil
 from werkzeug.utils import secure_filename
+from dotenv import load_dotenv
+load_dotenv()
 
 application = Flask(__name__)
 application.config['UPLOAD_FOLDER'] = 'uploads'
@@ -62,12 +64,24 @@ def upload_files():
             quarantined = False
             reason = None
 
-            if malicious > 10:
+            local_infected = scan_result.get('local_scan') == 'infected'
+
+            if malicious > 10 or local_infected:
                 quarantine_path = os.path.join(QUARANTINE_FOLDER, unique_name)
                 shutil.move(filepath, quarantine_path)
-                quarantined = True
-                reason = f'High risk (malicious detections: {malicious})'
+                
+                report_src = filepath + '_report.txt'
+                if os.path.exists(report_src):
+                    shutil.move(report_src, os.path.join(QUARANTINE_FOLDER, unique_name +'_report.txt'))
 
+                quarantined = True
+                if local_infected and malicious > 10:
+                     reason = f'Local scan infected + VT malicious detections: {malicious}'
+                elif local_infected:
+                     reason = 'Local scan: infected'
+                else:
+                     reason = f'High risk (malicious detections: {malicious})'
+            
             # Cache scan result by stored filename
             scan_cache[unique_name] = scan_result
             uploaded_files.append({
@@ -119,13 +133,12 @@ def view_report(filename):
     if not safe_name:
         return jsonify({'error': 'Invalid filename'}), 400
 
-    report_path = os.path.join(application.config['UPLOAD_FOLDER'], safe_name + '_report.txt')
+    for folder in [application.config['UPLOAD_FOLDER'], QUARANTINE_FOLDER]:
+        report_path = os.path.join(folder, safe_name + '_report.txt')
+        if os.path.exists(report_path):
+            return send_file(report_path, as_attachment=False, mimetype='text/plain')
 
-    if not os.path.exists(report_path):
-        return jsonify({'error': 'Report not found'}), 404
-
-    return send_file(report_path, as_attachment=False, mimetype='text/plain')
-
+    return jsonify({'error': 'Report not found'}), 404
 
 @application.route('/delete/<filename>', methods=['DELETE'])
 def delete_file(filename):
@@ -158,19 +171,31 @@ os.makedirs(QUARANTINE_FOLDER, exist_ok=True)
 
 @application.route('/quarantine', methods=['GET'])
 def get_quarantine():
-    files = [f for f in os.listdir(QUARANTINE_FOLDER) if os.path.isfile(os.path.join(QUARANTINE_FOLDER, f))]
+    files = [
+        f for f in os.listdir(QUARANTINE_FOLDER)
+        if os.path.isfile(os.path.join(QUARANTINE_FOLDER, f))
+        and not f.endswith('_report.txt')  
+    ]
     return jsonify(files)
 
 @application.route('/recover/<filename>', methods=['POST'])
 def recover_file(filename):
-    src = os.path.join(QUARANTINE_FOLDER, secure_filename(filename))
-    dst = os.path.join(UPLOAD_FOLDER, secure_filename(filename))  # UPLOAD_FOLDER should already be defined earlier
+    safe = secure_filename(filename)
+    src = os.path.join(QUARANTINE_FOLDER, safe)
+    dst = os.path.join(application.config['UPLOAD_FOLDER'], safe)
     if os.path.exists(src):
         shutil.move(src, dst)
+        # Move report back too
+        report_src = os.path.join(QUARANTINE_FOLDER, safe + '_report.txt')
+        if os.path.exists(report_src):
+            shutil.move(report_src, os.path.join(application.config['UPLOAD_FOLDER'], safe + '_report.txt'))
+        # Restore scan cache entry if missing
+        if safe not in scan_cache:
+            scan_cache[safe] = {'local_scan': 'recovered', 'signatures': [], 'virustotal': {}}
         return jsonify({'success': True, 'message': f'Recovered {filename}'})
     return jsonify({'error': 'File not found'}), 404
 
-@application.route('/delete/<filename>', methods=['DELETE'])
+@application.route('/quarantine/delete/<filename>', methods=['DELETE'])
 def delete_quarantined(filename):
     path = os.path.join(QUARANTINE_FOLDER, secure_filename(filename))
     if os.path.exists(path):

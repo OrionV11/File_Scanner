@@ -2,10 +2,13 @@ import asyncio
 import csv
 import hashlib
 from pathlib import Path
+from dotenv import load_dotenv
+
 
 from .virustotal import vt_scan_or_lookup
 from .em_demo import export_report
 
+load_dotenv()
 MAX_UPLOAD_MB = 16
 CHUNK_SIZE = 4096  # LDF5: buffered I/O in 4KB chunks
 ALLOWED_EXT = {"txt", "pdf", "png", "jpg", "jpeg", "py", "csv", "doc", "docx", "avi","mp3","mp4","zip","rar","xls","xlsx","wav", "mov", "gif"}
