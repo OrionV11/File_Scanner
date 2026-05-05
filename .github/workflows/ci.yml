@@ -14,20 +14,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
+      - name: Build Docker image
+        run: docker build -t file-scanner .
 
-      - name: Install dependencies
+      - name: Start container
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Start Flask app
-        run: |
-          python application.py &
-          sleep 2  # give the server time to start
+          docker run -d -p 5000:5000 --name scanner-test file-scanner
+          sleep 3
 
       - name: Run tests
-        run: python test_scanner.py
+        run: docker exec scanner-test python test_scanner.py
+
+      - name: Cleanup
+        run: docker rm -f scanner-test
