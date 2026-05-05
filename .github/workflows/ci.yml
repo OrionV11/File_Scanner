@@ -3,27 +3,26 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
 
 jobs:
-  test:
+  build-and-push:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Build Docker image
-        run: docker build -t file-scanner .
+      - name: Login to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Start container
-        run: |
-          docker run -d -p 5000:5000 --name scanner-test file-scanner
-          sleep 3
+      - name: Build image
+        run: docker build -t ghcr.io/${{ github.repository }}/file-scanner:latest .
+
+      - name: Push image
+        run: docker push ghcr.io/${{ github.repository }}/file-scanner:latest
 
       - name: Run tests
-        run: docker exec scanner-test python test_scanner.py
-
-      - name: Cleanup
-        run: docker rm -f scanner-test
+        run: |
+          docker run -d -p 5000:5000 --name scanner-test ghcr.io/${{ github.repository }}/file-scanner:latest
+          sleep 3
+          docker exec scanner-test python test_scanner.py
+          docker rm -f scanner-test
