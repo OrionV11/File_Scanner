@@ -35,7 +35,12 @@ jobs:
           echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
 
       - name: Sign artifact
-        run: gpg --batch --yes --detach-sign --armor file-scanner.tar
+        run: |
+          echo "${{ secrets.GPG_PASSPHRASE }}" | \
+          gpg --batch --yes \
+              --pinentry-mode loopback \
+              --passphrase-fd 0 \
+              --detach-sign --armor file-scanner.tar
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
