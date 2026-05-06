@@ -2,7 +2,8 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main]
+    tags:
+      - 'v*'    #triggers only on version tags
 
 jobs:
   build-and-push:
@@ -19,4 +20,23 @@ jobs:
           docker run -d -p 5000:5000 --name scanner-test file-scanner:latest
           sleep 3
           docker exec scanner-test python test_scanner.py
-          docker rm -f scanner-test
+       
+        # If tests fail → workflow stops automatically (NO-GO)
+
+      - name: Save Docker image
+        run: docker save file-scanner:latest -o file-scanner.tar
+
+      - name: Generate checksum
+        run: sha256sum file-scanner.tar > file-scanner.tar.sha256
+
+      - name: Sign artifact
+        run: gpg --batch --yes --detach-sign --armor file-scanner.tar
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-${{ github.ref_name }}
+          path: |
+            file-scanner.tar
+            file-scanner.tar.sha256
+            file-scanner.tar.asc
